@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import csv
 import shutil
 import re
@@ -19,6 +20,15 @@ CSV_HEADER = ["Date", "ID", "Tag", "Name", "Amount", "Type", "Category", "Source
 LOG_FILE = "log.txt"
 STARTING_BALANCE = Decimal("0.00")
 
+def read_and_print_csv():
+    base = os.path.dirname(__file__)
+    csv_path = os.path.join(base, 'Result', 'combined_transactions.csv')
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        sys.stdout.write(f.read())
+    sys.exit(0)
+
+if '--read' in sys.argv:
+    read_and_print_csv()
 
 def log_change(message):
     timestamp = datetime.now().isoformat()
@@ -268,8 +278,8 @@ def main():
     cleaned = clean_transactions(all_txs)
     unique = deduplicate_transactions(cleaned)
     generate(unique)
-    write_summary_csv(unique, STARTING_BALANCE)
-    generate_plots(unique, STARTING_BALANCE)
+    #write_summary_csv(unique, STARTING_BALANCE)
+    #generate_plots(unique, STARTING_BALANCE)
 
 
 if __name__ == "__main__":

@@ -2,4 +2,6 @@ Result/
 Debit/
 Credit/
 Archive/
+node_modules/
+package-lock.json
 log.txt
