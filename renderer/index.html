@@ -10,12 +10,14 @@
   <title>Financial Dashboard</title>
 </head>
 <body>
-  <div class="chart-toolbar">
-    <button class="range-btn" data-range="all">All time</button>
-    <button class="range-btn" data-range="6m">Past 6 Months</button>
-    <button class="range-btn" data-range="1m">Recent Month</button>
+  <div class="container">
+    <div class="chart-toolbar">
+      <button class="range-btn" data-range="all">All time</button>
+      <button class="range-btn" data-range="6m">Past 6 Months</button>
+      <button class="range-btn" data-range="1m">Recent Month</button>
+    </div>
+    <div id="balance-chart"></div>
   </div>
-  <div id="balance-chart"></div>
 
   <div class="toolbar">
     <input id="search" placeholder="Search transactions…" />

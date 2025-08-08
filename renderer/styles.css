@@ -1,8 +1,21 @@
+:root {
+  --page-pad: 16px;         
+  --content-max: 1200px;     
+}
+
 body {
   margin: 0;
   font-family: sans-serif;
   background: #121212;
   color: #e0e0e0;
+  scrollbar-gutter: stable both-edges;
+  overflow-y: scroll;
+}
+
+.container {
+  margin-inline: auto;        
+  padding-inline: var(--page-pad);
+  box-sizing: border-box;
 }
 
 .chart-toolbar {
@@ -25,31 +38,26 @@ body {
   background: #4caf50;
 }
 
-#balance-chart {
-  width: 100%;
-  height: 240px;
-}
-
 .toolbar {
   display: flex;
   padding: 12px;
-  background: #1f1f1f;
+  background: #121212;
   margin-bottom: 8px;
 }
 .toolbar input {
   flex: 1;
   padding: 8px 12px;
-  background: #2c2c2c;
+  background: #1f1f1f;
   border: none;
-  border-radius: 4px;
+  border-radius: 2px;
   color: #e0e0e0;
   font-size: 14px;
 }
 .toolbar button {
   margin-left: 8px;
-  background: #2c2c2c;
+  background: #1f1f1f;
   border: none;
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 8px;
   cursor: pointer;
   font-size: 16px;
@@ -117,7 +125,7 @@ body {
 #balance-chart {
   width: 100%;
   height: 240px;
-  margin: 0 12px 8px 12px; 
+  margin-inline: 0;  
 }
 
 #balance-chart .drag,
@@ -133,7 +141,7 @@ html, body { overflow-x: hidden; }
 * { scrollbar-width: thin; scrollbar-color: #3a3a3a #1f1f1f; }
 
 body::-webkit-scrollbar { width: 10px; }
-body::-webkit-scrollbar-track { background: #1f1f1f; border-radius: 8px; }
+body::-webkit-scrollbar-track { background: #121212; border-radius: 8px; }
 body::-webkit-scrollbar-thumb {
   background: #3a3a3a; border-radius: 8px; border: 2px solid #1f1f1f;
 }
