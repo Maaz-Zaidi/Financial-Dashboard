@@ -4,6 +4,32 @@ body {
   background: #121212;
   color: #e0e0e0;
 }
+
+.chart-toolbar {
+  display: flex;
+  justify-content: center;
+  background: #1f1f1f;
+  padding: 8px;
+  gap: 12px;
+}
+.chart-toolbar .range-btn {
+  background: #2c2c2c;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 14px;
+}
+.chart-toolbar .range-btn.active {
+  background: #4caf50;
+}
+
+#balance-chart {
+  width: 100%;
+  height: 240px;
+}
+
 .toolbar {
   display: flex;
   padding: 12px;
@@ -30,9 +56,8 @@ body {
 }
 
 #table-container {
-  height: calc(100vh - 60px);
-  overflow-y: auto;
-  padding: 0 12px;
+  padding: 0 12px 24px;
+  overflow: visible;   
 }
 
 #tx-table {
@@ -66,3 +91,50 @@ body {
 .amount.expense {
   color: #f44336;
 }
+
+.chart-toolbar {
+  margin: 8px 12px;          
+  padding: 8px;
+  background: #1f1f1f;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+}
+.chart-toolbar .range-btn {
+  background: #2c2c2c;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 14px;
+}
+.chart-toolbar .range-btn.active {
+  background: #4caf50;
+  color: #111;
+}
+
+#balance-chart {
+  width: 100%;
+  height: 240px;
+  margin: 0 12px 8px 12px; 
+}
+
+#balance-chart .drag,
+#balance-chart .nsewdrag,
+#balance-chart .ewdrag,
+#balance-chart .wdrag,
+#balance-chart .sdrag {
+  cursor: default !important;
+}
+
+html, body { overflow-x: hidden; }             
+
+* { scrollbar-width: thin; scrollbar-color: #3a3a3a #1f1f1f; }
+
+body::-webkit-scrollbar { width: 10px; }
+body::-webkit-scrollbar-track { background: #1f1f1f; border-radius: 8px; }
+body::-webkit-scrollbar-thumb {
+  background: #3a3a3a; border-radius: 8px; border: 2px solid #1f1f1f;
+}
+body::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }

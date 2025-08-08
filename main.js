@@ -1,28 +1,41 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
-require('electron-reload')(__dirname);
+
+try {
+  require('electron-reload')(__dirname, { electron: require('electron') });
+} catch (e) {
+  console.warn('Live reload disabled:', e.message);
+}
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true
     }
   });
+
+  win.removeMenu();
+
   win.loadFile('renderer/index.html');
-  win.webContents.openDevTools({ mode: 'detach' });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  createWindow();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC handler to invoke Python read
-ipcMain.handle('load-csv', () => {
+ipcMain.handle('load-csv', async () => {
   const { spawnSync } = require('child_process');
-  const py = spawnSync('python', ['csv_financial_extractor.py', '--read'], { encoding: 'utf-8' });
-  return py.stdout;
+  const py = spawnSync('python', ['csv_financial_extractor.py', '--read'], {
+    encoding: 'utf-8'
+  });
+  return py.stdout || '';
 });
