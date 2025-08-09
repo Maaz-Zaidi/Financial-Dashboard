@@ -1,46 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.18.2.min.js"></script>
-  <title>Financial Dashboard</title>
 </head>
+<button id="toTop" class="to-top" aria-label="Back to top">↑</button>
 <body>
-  <div class="container">
-    <div class="chart-toolbar">
-      <button class="range-btn" data-range="all">All time</button>
-      <button class="range-btn" data-range="6m">Past 6 Months</button>
-      <button class="range-btn" data-range="1m">Recent Month</button>
+  <nav class="navbar">
+    <div class="nav-inner container">
+      <div class="brand">Financial Dashboard</div>
+      <div class="nav-items">
+        <button class="nav-item active" data-route="main">Dashboard</button>
+        <button class="nav-item" data-route="reports">Reports</button>
+        <button class="nav-item" data-route="settings">Settings</button>
+        <div class="nav-underline"></div>
+      </div>
     </div>
-    <div id="balance-chart"></div>
-  </div>
+  </nav>
 
-  <div class="toolbar">
-    <input id="search" placeholder="Search transactions…" />
-    <button id="filter">🔍</button>
-    <button id="add">➕</button>
-    <button id="download">⬇️</button>
-  </div>
+  <div id="app" class="container"></div>
 
-  <div id="table-container">
-    <table id="tx-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Name</th>
-          <th>Amount</th>
-          <th>Category</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <script type="module" src="renderer.js"></script>
-
+  <script type="module" src="app.js"></script>
 </body>
 </html>

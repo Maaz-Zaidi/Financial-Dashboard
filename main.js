@@ -12,11 +12,13 @@ function createWindow() {
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
+    backgroundColor: '#0f1115',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true
     }
   });
+  win.webContents.openDevTools({ mode: 'detach' });
 
   win.removeMenu();
 

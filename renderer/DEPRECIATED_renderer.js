@@ -14,6 +14,14 @@ const pageSize = 50;
 
 const balanceChart = createBalanceChart('balance-chart');
 
+let scrollTO = null;
+window.addEventListener('scroll', () => {
+  balanceChart.setInteractionEnabled(false);
+  clearTimeout(scrollTO);
+  scrollTO = setTimeout(() => balanceChart.setInteractionEnabled(true), 120);
+}, { passive: true });
+
+
 async function loadData() {
   try {
     const csvText = await window.api.invoke('load-csv');
@@ -102,5 +110,4 @@ rangeButtons.forEach(btn => {
   });
 });
 
-// kick off
 loadData();
