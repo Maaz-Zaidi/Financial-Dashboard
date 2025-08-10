@@ -222,6 +222,7 @@ export function createBalanceChart(elId) {
 
     const bg   = (theme === 'dark') ? '#0f1115' : '#f6f7f9';
     const text = (theme === 'dark') ? '#e6eaf2' : '#15171a';
+    const muted_text = (theme === 'dark') ? '#94a3b8' : '#6b7280';
 
     const layout = {
       uirevision: `rev-${uiRev}`,    
@@ -236,7 +237,7 @@ export function createBalanceChart(elId) {
         autorange: false, range: lastRange,
         rangeslider: { visible: false },
         fixedrange: false,
-        nticks: 3, tickformat: '%b %Y', ticklen: 6, tickpadding: 10,
+        nticks: 3, tickformat: '%b %Y', ticklen: 6, tickpadding: 10, tickcolor: bg, tickfont: { color: muted_text },
         showgrid: false,
         showspikes: true, spikemode: 'across', spikesnap: 'cursor',
         spikethickness: 1, spikecolor: '#888'

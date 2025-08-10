@@ -31,7 +31,7 @@ export async function init(root, Store) {
 
   let range = 'all';
   function draw() {
-    chart.update(rows, Store.state.initialBalance, range);
+    chart.update(rows, Store.state.initialBalance, range, Store.state.theme);
   }
   btns.forEach(b => b.addEventListener('click', () => {
     range = b.dataset.range;
