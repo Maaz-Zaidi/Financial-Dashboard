@@ -1,47 +1,95 @@
-const appEl = document.getElementById('app');
-const navItems = [...document.querySelectorAll('.nav-item')];
+const appEl     = document.getElementById('app');
+const navItems  = [...document.querySelectorAll('.nav-item')];
 const underline = document.querySelector('.nav-underline');
+const toTopBtn  = document.getElementById('toTop');
+
+const LS_KEY = 'finDashStore';
+
+const defaultState = {
+  theme: 'dark',
+  initialBalance: 5000,
+  username: '',
+  blurSensitive: false,
+  ignores: [] 
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return { ...defaultState, ...JSON.parse(raw) };
+  } catch {}
+  const s = { ...defaultState };
+  const oldInit  = localStorage.getItem('initialBalance');
+  const oldTheme = localStorage.getItem('theme');
+  if (oldInit !== null)  s.initialBalance = Number(oldInit) || defaultState.initialBalance;
+  if (oldTheme)          s.theme = oldTheme === 'light' ? 'light' : 'dark';
+  return s;
+}
+function saveState(s) {
+  localStorage.setItem(LS_KEY, JSON.stringify(s));
+}
 
 const Store = (() => {
-  const state = {
-    initialBalance: Number(localStorage.getItem('initialBalance') || '5000'),
-    theme: localStorage.getItem('theme') || 'dark',
-    listeners: new Set()
+  let state = loadState();
+  const listeners = new Set();
+
+  function notify() {
+    saveState(state);
+    listeners.forEach(fn => { try { fn(state); } catch {} });
+  }
+
+  document.documentElement.dataset.theme = state.theme;
+  document.body.dataset.theme = state.theme;
+
+  return {
+    get state() { return state; },
+    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+
+    setTheme(t) {
+      state = { ...state, theme: t === 'light' ? 'light' : 'dark' };
+      document.documentElement.dataset.theme = state.theme;
+      document.body.dataset.theme = state.theme;
+      notify();
+    },
+
+    setInitialBalance(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return;
+      state = { ...state, initialBalance: n };
+      notify();
+    },
+
+    setUsername(name) {
+      state = { ...state, username: (name || '').trim() };
+      notify();
+    },
+
+    setBlurSensitive(on) {
+      state = { ...state, blurSensitive: !!on };
+      notify();
+    },
+
+    setIgnores(list) {
+      const arr = Array.isArray(list) ? list.map(s => String(s).trim()).filter(Boolean) : [];
+      state = { ...state, ignores: arr };
+      notify();
+      try { window.api?.invoke?.('write-ignores', arr.join('\n')); } catch {}
+    }
   };
-
-  document.body.setAttribute('data-theme', state.theme);
-  document.documentElement.setAttribute('data-theme', state.theme);
-
-  function setInitialBalance(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return;
-    state.initialBalance = n;
-    localStorage.setItem('initialBalance', String(n));
-    emit();
-  }
-  function setTheme(theme) {
-    state.theme = theme === 'light' ? 'light' : 'dark';
-    localStorage.setItem('theme', state.theme);
-    document.body.setAttribute('data-theme', state.theme);
-    document.documentElement.setAttribute('data-theme', state.theme);
-    console.log('being set?')
-    emit();
-  }
-
-  function subscribe(fn) { state.listeners.add(fn); return () => state.listeners.delete(fn); }
-  function emit() { state.listeners.forEach(fn => fn(state)); }
-
-  return { state, setInitialBalance, setTheme, subscribe };
 })();
 
 let current = null;
-async function navigate(route) {
-  // update nav visuals
+
+function setActiveNav(route) {
   navItems.forEach(b => b.classList.toggle('active', b.dataset.route === route));
-  moveUnderline();
+  // move underline after layout ticks
+  requestAnimationFrame(moveUnderline);
+}
+
+async function navigate(route) {
+  setActiveNav(route);
 
   if (current?.destroy) { try { current.destroy(); } catch {} }
-
   appEl.innerHTML = '';
 
   if (route === 'main') {
@@ -61,7 +109,7 @@ async function navigate(route) {
 
 function moveUnderline() {
   const active = document.querySelector('.nav-item.active');
-  if (!active) return;
+  if (!active || !underline) return;
   const parent = active.parentElement;
   const rect = active.getBoundingClientRect();
   const parentRect = parent.getBoundingClientRect();
@@ -69,20 +117,20 @@ function moveUnderline() {
   underline.style.transform = `translateX(${rect.left - parentRect.left}px)`;
 }
 
-navItems.forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.route)));
+navItems.forEach(btn =>
+  btn.addEventListener('click', () => navigate(btn.dataset.route))
+);
+
+function toggleToTop(){
+  const show = window.scrollY > 300;
+  toTopBtn?.classList.toggle('show', show);
+}
+window.addEventListener('scroll', toggleToTop, { passive:true });
+toTopBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+toggleToTop();
 
 window.addEventListener('load', () => {
   moveUnderline();
   navigate('main');
 });
-
-const toTopBtn = document.getElementById('toTop');
-function toggleToTop(){
-  const show = window.scrollY > 300;
-  toTopBtn.classList.toggle('show', show);
-}
-window.addEventListener('scroll', toggleToTop, { passive:true });
-toTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-toggleToTop(); 
-
 window.addEventListener('resize', moveUnderline);

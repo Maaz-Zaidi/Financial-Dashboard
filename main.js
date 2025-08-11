@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 try {
   require('electron-reload')(__dirname, { electron: require('electron') });
@@ -33,6 +34,16 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+ipcMain.handle('write-ignores', async (_evt, body) => {
+  const base = app.getAppPath(); // or your repo root
+  const cfgDir = path.join(base, 'Config');
+  const file = path.join(cfgDir, 'ignores.txt');
+  await fs.promises.mkdir(cfgDir, { recursive: true });
+  await fs.promises.writeFile(file, body ?? '', 'utf-8');
+  return true;
+});
+
 
 ipcMain.handle('load-csv', async () => {
   const { spawnSync } = require('child_process');

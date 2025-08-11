@@ -57,6 +57,7 @@ export async function init(root, Store) {
   const rangeButtons = root.querySelectorAll('.range-btn');
   const tbody        = root.querySelector('#tx-table tbody');
   const tableCard    = root.querySelector('#table-container');
+  const table     = root.querySelector('#tx-table');
 
   const loader = document.createElement('div');
   loader.className = 'loader';
@@ -92,6 +93,8 @@ export async function init(root, Store) {
   }
 
   const unsub = Store.subscribe(() => {
+    applyPrivacyUI();
+    renderPage(true);
     updateChart();
   });
 
@@ -111,12 +114,29 @@ export async function init(root, Store) {
 
     requestAnimationFrame(() => {
         tableCard.classList.remove('loading'); 
+        applyPrivacyUI();
     });
+  }
+
+  function applyPrivacyUI() {
+    const on = !!Store.state.blurSensitive;
+    table.classList.toggle('details-blurred', on);
+    table.classList.toggle('details-disabled', on); 
   }
 
   function getFilteredTx() {
     const q = searchQuery;
+    const ignores = (Store.state.ignores || []).map(s => s.toLowerCase());
+
     let rows = allData.filter(r => r && r.Date && !isNaN(Date.parse(r.Date)));
+
+    if (ignores.length) {
+      rows = rows.filter(tx => {
+        const tag  = String(tx.Tag  || '').toLowerCase();
+        const name = String(tx.Name || '').toLowerCase();
+        return !ignores.some(k => tag.includes(k) || name.includes(k));
+      });
+    }
 
     if (q) {
         rows = rows.filter(tx =>
@@ -389,6 +409,7 @@ export async function init(root, Store) {
   }
 
   tbody.addEventListener('click', (e) => {
+    if (Store.state.blurSensitive) return;
     const tr = e.target.closest('tr');
     if (!tr || !tr.__tx) return;
     openTxModal(tr.__tx);
@@ -398,6 +419,8 @@ export async function init(root, Store) {
     currentRange = btn.dataset.range;
     updateChart();
   }));
+
+  applyPrivacyUI();
 
   await loadData();
   ensureObserver();

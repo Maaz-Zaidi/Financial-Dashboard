@@ -502,3 +502,31 @@ body::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
 .info-row:hover {
   background: color-mix(in oklab, var(--surface-2) 70%, var(--surface));
 }
+
+.switch { position: relative; width: 48px; height: 28px; display:inline-block; }
+.switch input { opacity:0; width:0; height:0; }
+.switch .slider {
+  position:absolute; inset:0; border-radius:999px;
+  background: var(--surface-2);
+  border:1px solid var(--border);
+  transition: background .2s ease, border-color .2s ease;
+}
+.switch .slider:before{
+  content:""; position:absolute; left:3px; top:50%;
+  width:22px; height:22px; transform: translateY(-50%);
+  border-radius:50%; background: var(--surface);
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .2s ease, background .2s ease;
+}
+.switch input:checked + .slider{
+  background: var(--accent-weak); border-color: var(--accent);
+}
+.switch input:checked + .slider:before{
+  transform: translate(23px, -50%); background: var(--accent);
+}
+
+.details-blurred tbody td:nth-child(2), 
+.details-blurred tbody td:nth-child(3)  {
+  filter: blur(6px);
+}
+.details-disabled tbody tr { pointer-events: none; } 

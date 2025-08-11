@@ -20,6 +20,32 @@ CSV_HEADER = ["Date", "ID", "Tag", "Name", "Amount", "Type", "Category", "Source
 LOG_FILE = "log.txt"
 STARTING_BALANCE = Decimal("0.00")
 
+CONFIG_FOLDER = "Config"
+IGNORE_FILE = os.path.join(CONFIG_FOLDER, "ignores.txt")
+
+def load_ignore_patterns():
+  patterns = []
+  try:
+      if os.path.isfile(IGNORE_FILE):
+          with open(IGNORE_FILE, 'r', encoding='utf-8') as f:
+              for line in f:
+                  s = line.strip()
+                  if not s or s.startswith('#'):
+                      continue
+                  patterns.append(s.lower())
+  except Exception as e:
+      log_change(f"Failed reading ignores file: {e}")
+  return patterns
+
+def should_ignore_tx(tx, patterns):
+  tag  = (tx.get("Tag")  or "").lower()
+  name = (tx.get("Name") or "").lower()
+  for p in patterns:
+      if p in tag or p in name:
+          return True
+  return False
+
+
 def read_and_print_csv():
     base = os.path.dirname(__file__)
     csv_path = os.path.join(base, 'Result', 'combined_transactions.csv')
@@ -277,6 +303,16 @@ def main():
     all_txs = debit + credit
     cleaned = clean_transactions(all_txs)
     unique = deduplicate_transactions(cleaned)
+
+    ignore_patterns = load_ignore_patterns()
+    if ignore_patterns:
+        before = len(unique)
+        unique = [tx for tx in unique if not should_ignore_tx(tx, ignore_patterns)]
+        skipped = before - len(unique)
+        if skipped:
+            log_change(f"Ignored {skipped} transactions due to ignores.txt patterns")
+
+
     generate(unique)
     #write_summary_csv(unique, STARTING_BALANCE)
     #generate_plots(unique, STARTING_BALANCE)
