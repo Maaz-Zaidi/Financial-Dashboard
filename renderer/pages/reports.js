@@ -23,23 +23,23 @@ export async function init(root, Store) {
       <!-- KPI donuts -->
       <div class="kpi-row kpi-4">
         <div class="kpi-card">
-          <div class="kpi-title">Total Expense</div>
-          <div id="donut-total" class="donut"></div>
+          <div class="kpi-head"><div class="kpi-title">Total Expense</div></div>
+          <div class="kpi-body"><div id="donut-total" class="donut"></div></div>
           <div class="kpi-meta" id="donut-total-meta"></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-title">Top Category Expense</div>
-          <div id="donut-cat" class="donut"></div>
+          <div class="kpi-head"><div class="kpi-title">Top Category Expense</div></div>
+          <div class="kpi-body"><div id="donut-cat" class="donut"></div></div>
           <div class="kpi-meta" id="donut-cat-meta"></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-title">Top Item Expense</div>
-          <div id="donut-item" class="donut"></div>
+          <div class="kpi-head"><div class="kpi-title">Top Item Expense(s)</div></div>
+          <div class="kpi-body"><div id="donut-item" class="donut"></div></div>
           <div class="kpi-meta" id="donut-item-meta"></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-title">Average Transaction Size</div>
-          <div id="donut-avg" class="donut"></div>
+          <div class="kpi-head"><div class="kpi-title">Average Transaction</div></div>
+          <div class="kpi-body"><div id="donut-avg" class="donut"></div></div>
           <div class="kpi-meta" id="donut-avg-meta"></div>
         </div>
       </div>
@@ -171,8 +171,11 @@ export async function init(root, Store) {
       bg:     dark ? '#161a20' : '#f1f2f4',
       line:   dark ? '#242a37' : '#eaecef',
       palette: dark
-        ? ['#66e0a3','#81b1ff','#b59dff','#f7b3a7','#fadc7a','#7adccf','#b1e39b']
-        : ['#22c55e','#3b82f6','#8b5cf6','#ef4444','#f59e0b','#14b8a6','#84cc16']
+        ? ["#2a5484", "#2f5ebc", "#4b68dd", "#6c74e5", "#968de7", "#b6a5e9", "#cab8ea"]
+        : ["#F1F7FF", "#E9F1FF", "#DDEAFF", "#CDE0FF", "#BAD3FF", "#A5C4FF", "#8FB2FF"],
+      pallete_dual: dark 
+        ? ["#8b0000", "#013220"]
+        : ["#ee2400", "#88E788"]
     };
   }
 
@@ -183,7 +186,7 @@ export async function init(root, Store) {
   }
 
   function drawKPIs(data) {
-    const { text, muted, bg, line, palette } = tokens();
+    const { text, muted, bg, line, palette, pallete_dual } = tokens();
 
     let exp = 0, inc = 0, expN = 0, incN = 0;
     for (const r of data) {
@@ -195,7 +198,7 @@ export async function init(root, Store) {
     donut('donut-total',
       [exp, inc],
       ['Expenses', 'Income'],
-      [palette[0], palette[1]],
+      [pallete_dual[0], pallete_dual[1]],
       { title: 'Total', value: fmtMoney(exp) },
       { bg, text, grid: line }
     );
@@ -213,7 +216,7 @@ export async function init(root, Store) {
     const catSorted = [...byCat.entries()].sort((a,b)=> b[1]-a[1]);
     const catLabels = catSorted.map(([k])=>k);
     const catValues = catSorted.map(([_,v])=>v);
-    const catColors = catLabels.map((_,i)=> palette[i % palette.length]);
+    const catColors = catLabels.map((_, i) => palette[Math.min(i, palette.length - 1)]);
     const topCatName = catLabels[0] || '—';
     const topCatVal  = catValues[0] || 0;
     donut('donut-cat',
@@ -249,17 +252,22 @@ export async function init(root, Store) {
       { title: 'Top Item', value: cap(topItemName) },
       { bg, text, grid: line }
     );
+    const otherMetaTotal = top3.slice(1).reduce((s,[_k,v])=>s+v,0) + rest; 
+
     document.getElementById('donut-item-meta').innerHTML = `
-      ${top3.map(([k,v])=>`<div class="stat-row"><span>${cap(k)}</span><b>${fmtMoney(v)}</b></div>`).join('')}
-      ${rest>0 ? `<div class="stat-row"><span>Other</span><b>${fmtMoney(rest)}</b></div>` : ''}
+      <div class="stat-row"><span>${cap(topItemName)}</span><b>${fmtMoney(topItemVal)}</b></div>
+      ${itemSorted.length > 1
+        ? `<div class="stat-row"><span>Other</span><b>${fmtMoney(otherMetaTotal)}</b></div>`
+        : '' }
     `;
+
 
     const avgE = expN ? (exp/expN) : 0;
     const avgI = incN ? (inc/incN) : 0;
     donut('donut-avg',
       [avgE, avgI].every(v=>v===0) ? [1,1] : [avgE, avgI],
       ['Avg Expense','Avg Income'],
-      [palette[0], palette[1]],
+      [pallete_dual[0], pallete_dual[1]],
       { title: 'Average', value: fmtMoney(avgE) },
       { bg, text, grid: line }
     );
@@ -281,7 +289,7 @@ export async function init(root, Store) {
       sort: false,
       textinfo: 'none',
       textposition: 'none',
-      hovertemplate: '<b>%{label}</b><br>%{percent:.1%}<extra></extra>',
+      hoverinfo: 'skip',               
       marker: { colors, line: { width: 0 } }
     }];
 
@@ -290,14 +298,80 @@ export async function init(root, Store) {
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       showlegend: false,
-      hoverlabel: { bgcolor: theme.bg, bordercolor: theme.grid, font: { color: theme.text, size: 12 } }
+      hoverlabel: { bgcolor: theme.bg } 
     };
     const config = { displayModeBar: false, responsive: true };
 
     window.Plotly.react(el, data, layout, config);
 
-    mountDonutCenter(el, { title: center?.title ?? '', value: center?.value ?? '', hole });
+    mountDonutCenter(el, {
+      title: center?.title ?? '',
+      value: center?.value ?? '',
+      hole
+    });
+
+    attachPieTooltip(el);
   }
+
+  function attachPieTooltip(plotDiv) {
+    if (plotDiv._pieTipBound) return;
+    plotDiv._pieTipBound = true;
+
+    plotDiv.style.position = plotDiv.style.position || 'relative';
+
+    let tip = plotDiv.querySelector(':scope > .pie-tip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.className = 'pie-tip';
+      tip.innerHTML = `<div class="pie-tip-label"></div><div class="pie-tip-val"></div>`;
+      plotDiv.appendChild(tip);
+    }
+
+    const $label = tip.querySelector('.pie-tip-label');
+    const $val   = tip.querySelector('.pie-tip-val');
+
+    function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    plotDiv.on('plotly_hover', (ev) => {
+      const p = ev?.points?.[0];
+      if (!p || p.data?.type !== 'pie') return;
+
+      const lbl = esc(p.label);
+      const valueNum = Number(p.value) || 0;
+      const pctNum = typeof p.percent === 'number' ? p.percent * 100 : parseFloat(String(p.percent || 0));
+
+      $label.textContent = lbl;
+      $val.textContent   = `${pctNum.toFixed(1)}%  ·  $${valueNum.toFixed(2)}`;
+
+      tip.style.opacity = '1';
+
+      const r = plotDiv.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const x = ev.event.clientX;
+      const y = ev.event.clientY;
+
+      tip.style.left = '0px';
+      tip.style.top  = '0px';
+      tip.style.transform = 'none';
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+
+      const toRight = x >= cx;
+      let left = (x - r.left) + (toRight ? 12 : -12 - tw);
+      let top  = (y - r.top)  - th / 2;
+
+      left = Math.max(4, Math.min(left, r.width - tw - 4));
+      top  = Math.max(4, Math.min(top,  r.height - th - 4));
+
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    });
+
+    plotDiv.on('plotly_unhover', () => {
+      tip.style.opacity = '0';
+    });
+  }
+
 
   function mountDonutCenter(donutEl, { title, value, hole }) {
     let host = donutEl.querySelector(':scope > .donut-center');
