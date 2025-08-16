@@ -44,9 +44,51 @@ export async function init(root, Store) {
         </div>
       </div>
 
-      <div class="card" style="padding:16px; margin-top:12px; color:var(--muted);">
-        <!-- room for more analysis later -->
+      <div class="analysis-card" id="assoc">
+        <div class="analysis-head">
+          <div class="analysis-title">Association Analysis <span class="beta">beta</span></div>
+
+          <div class="analysis-controls">
+            <div class="association-category-group" id="assocMode">
+              <button class="association-category-btn active" data-mode="cat">Categories</button>
+              <button class="association-category-btn" data-mode="item">Items</button>
+              <button class="association-category-btn" data-mode="dow">Day + Category</button>
+            </div>
+
+            <div class="knobs">
+              <label class="knob">
+                <span>Min support</span>
+                <input id="minSupport" type="range" min="0.01" max="0.20" step="0.01" value="0.05">
+                <b id="minSupportVal">5%</b>
+              </label>
+              <label class="knob">
+                <span>Min confidence</span>
+                <input id="minConf" type="range" min="0.10" max="0.90" step="0.05" value="0.30">
+                <b id="minConfVal">30%</b>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="assoc-body">
+          <div class="assoc-lead">
+            <div class="assoc-art"> </div>
+            <div class="assoc-summary" id="assocSummary">We'll surface pairs that commonly occur together and rules with high lift to help spot budgeting bundles.</div>
+          </div>
+
+          <div class="assoc-chips" id="coocc"></div>
+
+          <div class="rule-wrap">
+            <table class="rule-table" id="rules">
+              <thead>
+                <tr><th style="width:55%">Rule</th><th>Support</th><th>Confidence</th><th>Lift</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
       </div>
+
     </div>
   `;
 
@@ -183,6 +225,7 @@ export async function init(root, Store) {
     const data = getSelectionRows();
     chart.update(data, Store.state.initialBalance, 'all', Store.state.theme);
     drawKPIs(data);
+    drawAssociations(data);
   }
 
   function drawKPIs(data) {
@@ -276,6 +319,211 @@ export async function init(root, Store) {
       <div class="stat-row"><span>Avg Income</span><b>${fmtMoney(avgI)}</b></div>
     `;
   }
+
+  function wireThemedRanges(scope = document){
+    scope.querySelectorAll('input[type="range"]').forEach(r => {
+      const set = () => {
+        const min = +r.min || 0, max = +r.max || 100, val = +r.value || 0;
+        const pct = ((val - min) / (max - min)) * 100;
+        r.style.setProperty('--percent', pct + '%');
+      };
+      r.addEventListener('input', set);
+      set(); 
+    });
+  }
+
+  function normalizeItem(r){
+    const t = (r.Tag || '').trim();
+    const n = (r.Name || '').trim();
+    return t || n || '(Unknown)';
+  }
+  function dayOfWeekKey(dateStr){
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, { weekday: 'short' });
+  }
+
+  function buildBaskets(data, mode='cat'){
+    const byDay = new Map(); 
+    for (const r of data){
+      if (String(r.Type||'').toLowerCase() !== 'expense') continue;
+
+      const d = String(r.Date).slice(0,10);
+      if (!byDay.has(d)) byDay.set(d, new Set());
+
+      if (mode === 'cat'){
+        const cat = r.Category || 'Uncategorized';
+        byDay.get(d).add(`C:${cat}`);
+      } else if (mode === 'item'){
+        byDay.get(d).add(`I:${normalizeItem(r)}`);
+      } else if (mode === 'dow'){
+        const key = `${dayOfWeekKey(r.Date)} + ${(r.Category || 'Uncategorized')}`;
+        byDay.get(d).add(key);
+      }
+    }
+
+    return [...byDay.values()].map(set => [...set]);
+  }
+
+  function apriori(baskets, minSupport=0.05, maxK=3){
+    const N = baskets.length || 1;
+    const support = new Map(); 
+    const count1 = new Map();
+
+    for (const b of baskets){
+      for (const x of new Set(b)){
+        count1.set(x, (count1.get(x)||0) + 1);
+      }
+    }
+    let L = [...count1.entries()]
+      .filter(([_,c]) => c/N >= minSupport)
+      .map(([x,c]) => ([ [x], c/N ]));
+
+    for (const [items,s] of L){
+      support.set(items.slice().sort().join('|'), s);
+    }
+
+    for (let k=2; k<=maxK; k++){
+      if (L.length === 0) break;
+
+      const candidates = new Map(); 
+      const prevItems = L.map(([items]) => items);
+      for (let i=0; i<prevItems.length; i++){
+        for (let j=i+1; j<prevItems.length; j++){
+          const union = new Set([...prevItems[i], ...prevItems[j]]);
+          if (union.size !== k) continue;
+          const key = [...union].sort().join('|');
+          candidates.set(key, 0);
+        }
+      }
+
+      for (const b of baskets){
+        const setB = new Set(b);
+        for (const key of candidates.keys()){
+          const items = key.split('|');
+          let ok = true;
+          for (const x of items) if (!setB.has(x)) { ok=false; break; }
+          if (ok) candidates.set(key, candidates.get(key)+1);
+        }
+      }
+
+      L = [];
+      for (const [key,c] of candidates){
+        const s = c/N;
+        if (s >= minSupport){
+          support.set(key, s);
+          L.push([key.split('|'), s]);
+        }
+      }
+    }
+    return { support, N };
+  }
+
+  function rulesFromSupport(supportMap){
+    const entries = [...supportMap.entries()];
+    const supp = (arr) => supportMap.get(arr.slice().sort().join('|')) || 0;
+
+    const rules = [];
+    for (const [key, supAB] of entries){
+      const items = key.split('|');
+      if (items.length < 2) continue;
+
+      for (let i=0; i<items.length; i++){
+        const A = items.filter((_,idx)=> idx!==i);
+        const B = [items[i]];
+        const supA = supp(A);
+        const supB = supp(B);
+        if (!supA || !supB) continue;
+
+        const conf = supAB / supA;
+        const lift = conf / supB;
+        rules.push({
+          A, B,
+          support: supAB,
+          confidence: conf,
+          lift
+        });
+      }
+    }
+    return rules.sort((a,b)=> b.lift - a.lift || b.confidence - a.confidence);
+  }
+
+  function renderCooccurrences(supportMap, container, top=12){
+    const pairs = [...supportMap.entries()]
+      .map(([k,s]) => ({ items: k.split('|'), s }))
+      .filter(d => d.items.length >= 2)
+      .sort((a,b)=> b.s - a.s)
+      .slice(0, top);
+
+    container.innerHTML = pairs.map(p => `
+      <div class="chip">
+        <span class="label">${p.items.map(x=>x.replace(/^C:|^I:/,'')).join(' + ')}</span>
+        <span class="pct">${(p.s*100).toFixed(1)}%</span>
+      </div>
+    `).join('') || `<div class="empty">Not enough co-occurrences yet.</div>`;
+  }
+
+  function renderRules(rules, tableBody, minConf=0.3){
+    const rows = rules
+      .filter(r => r.confidence >= minConf)
+      .slice(0, 20)
+      .map(r => `
+        <tr>
+          <td><b>${r.A.map(x=>x.replace(/^C:|^I:/,'')).join(' + ')}</b>
+              <span class="arrow">→</span>
+              ${r.B.map(x=>x.replace(/^C:|^I:/,'')).join(' + ')}</td>
+          <td>${(r.support*100).toFixed(1)}%</td>
+          <td>${(r.confidence*100).toFixed(1)}%</td>
+          <td>${r.lift.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+    tableBody.innerHTML = rows || `
+      <tr><td colspan="4" class="empty">No strong rules at this threshold.</td></tr>
+    `;
+  }
+
+  function drawAssociations(data){
+    const modeBtns = document.querySelectorAll('#assocMode .association-category-btn');   
+    const coocc    = document.getElementById('coocc');
+    const rulesTbd = document.querySelector('#rules tbody');
+    const supEl    = document.getElementById('minSupport');
+    const supVal   = document.getElementById('minSupportVal');
+    const confEl   = document.getElementById('minConf');
+    const confVal  = document.getElementById('minConfVal');
+    
+
+    let mode = document.querySelector('#assocMode .pill.active')?.dataset.mode || 'cat';
+    let minSupport = Number(supEl.value);
+    let minConf    = Number(confEl.value);
+
+    function recompute(){
+      supVal.textContent  = `${Math.round(minSupport*100)}%`;
+      confVal.textContent = `${Math.round(minConf*100)}%`;
+
+      const baskets = buildBaskets(data, mode);
+      const { support } = apriori(baskets, minSupport, 3);
+      renderCooccurrences(support, coocc);
+      const rules = rulesFromSupport(support);
+      renderRules(rules, rulesTbd, minConf);
+    }
+
+    if (!drawAssociations._bound){
+      modeBtns.forEach(b => b.addEventListener('click', () => {
+        modeBtns.forEach(bb => bb.classList.toggle('active', bb===b));     
+        mode = b.dataset.mode;
+        recompute();
+      }));
+      supEl.addEventListener('input', () => { minSupport = Number(supEl.value); recompute(); });
+      confEl.addEventListener('input', () => { minConf = Number(confEl.value); recompute(); });
+      drawAssociations._bound = true;
+    }
+
+    recompute();
+
+    wireThemedRanges(document.getElementById('assoc'));
+
+  }
+
   
   function donut(elId, values, labels, colors, center, theme, options = {}) {
     const el   = document.getElementById(elId);
@@ -338,7 +586,9 @@ export async function init(root, Store) {
 
       const lbl = esc(p.label);
       const valueNum = Number(p.value) || 0;
-      const pctNum = typeof p.percent === 'number' ? p.percent * 100 : parseFloat(String(p.percent || 0));
+      const vals = Array.isArray(p.data?.values) ? p.data.values : [];
+      const total = vals.reduce((s, v) => s + (Number(v) || 0), 0);
+      const pctNum = total ? (valueNum / total) * 100 : 0;
 
       $label.textContent = lbl;
       $val.textContent   = `${pctNum.toFixed(1)}%  ·  $${valueNum.toFixed(2)}`;

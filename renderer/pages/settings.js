@@ -25,7 +25,6 @@ export async function init(root, Store) {
           </div>
         </div>
 
-        <!-- Theme + Privacy switches -->
         <div style="display:grid; gap:12px;">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <div>
@@ -62,7 +61,7 @@ export async function init(root, Store) {
           </div>
           <div style="color:var(--muted); font-size:12px;">
             • Matches against <b>Tag</b> and <b>Name</b>.<br/>
-            • App filters these rows and they’ll be skipped during CSV generation.
+            • App filters these rows and they'll be skipped during CSV generation.
           </div>
         </div>
 
