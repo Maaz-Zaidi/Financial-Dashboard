@@ -620,6 +620,18 @@ body::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
   grid-template-rows: auto 1fr auto;
   padding: 0;
 }
+.kpi-card.blur-contents > :not(.kpi-head) {
+  filter: blur(8px);
+  opacity: .55;
+  pointer-events: none;
+  transition: filter .2s ease, opacity .2s ease;
+}
+
+.kpi-card.blur-contents > .kpi-head {
+  filter: none;
+  opacity: 1;
+}
+
 .kpi-title{
   font-weight: 500;
   margin: 0;

@@ -92,13 +92,80 @@ export async function init(root, Store) {
     </div>
   `;
 
+  if (!document.getElementById('reports-loader-styles')) {
+    const css = document.createElement('style');
+    css.id = 'reports-loader-styles';
+    css.textContent = `
+      .page{ position: relative; } /* make overlay anchor safely */
+
+      .page-loader{
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        z-index: 20;
+        /* subtle glass backdrop */
+        background: color-mix(in oklab, var(--bg) 85%, transparent);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        transition: opacity .18s ease;
+      }
+      .page-loader.show{ display: grid; opacity: 1; }
+
+      .dots{ display: inline-flex; gap: 10px; align-items: center; }
+      .dots span{
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--muted);
+        animation: reports-bounce 1.1s infinite ease-in-out;
+        opacity: .75;
+      }
+      .dots span:nth-child(2){ animation-delay: .12s; }
+      .dots span:nth-child(3){ animation-delay: .24s; }
+
+      @keyframes reports-bounce{
+        0%   { transform: translateY(0);   opacity: .55; }
+        35%  { transform: translateY(-6px); opacity: 1; }
+        70%  { transform: translateY(0);   opacity: .65; }
+        100% { transform: translateY(0);   opacity: .55; }
+      }
+    `;
+    document.head.appendChild(css);
+  }
+  
+  const reportsPageEl = root.querySelector('.page');
+  const reportsLoader = document.createElement('div');
+  reportsLoader.className = 'page-loader';
+  reportsLoader.innerHTML = `<div class="dots" aria-label="Loading">
+    <span></span><span></span><span></span>
+  </div>`;
+  reportsPageEl.appendChild(reportsLoader);
+
+  const showReportsLoader = () => reportsLoader.classList.add('show');
+  const hideReportsLoader = () => reportsLoader.classList.remove('show');
+
+  showReportsLoader();
   const csvText = await window.api.invoke('load-csv');
   const parsed = Papa.parse(csvText, {
     header: true, skipEmptyLines: true,
     transformHeader: h => (h || '').trim(),
     transform: v => (typeof v === 'string' ? v.trim() : v)
   });
-  const rows = parsed.data.filter(r => r && r.Date && !isNaN(Date.parse(r.Date)));
+  
+  const allRows = parsed.data.filter(r => r && r.Date && !isNaN(Date.parse(r.Date)));
+
+  function applyIgnores(list, ignoresArr = (Store.state.ignores || [])) {
+    const needles = ignoresArr.map(s => String(s || '').toLowerCase()).filter(Boolean);
+    if (!needles.length) return list;
+    return list.filter(tx => {
+      const tag  = String(tx.Tag  || '').toLowerCase();
+      const name = String(tx.Name || '').toLowerCase();
+      return !needles.some(k => tag.includes(k) || name.includes(k));
+    });
+  }
+
+  let rows = applyIgnores(allRows, Store.state.ignores);
+
+  applyPrivacyUI(!!Store.state.blurSensitive);
 
   const fmtMoney = (n) => '$' + (Number(n)||0).toFixed(2);
   const sanitizeAmount = (v) => {
@@ -183,6 +250,7 @@ export async function init(root, Store) {
     }
     return best;
   }
+
   function applyMsSelection(btn) {
     track.querySelectorAll('.ms-item').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
@@ -492,7 +560,7 @@ export async function init(root, Store) {
     const confVal  = document.getElementById('minConfVal');
     
 
-    let mode = document.querySelector('#assocMode .pill.active')?.dataset.mode || 'cat';
+    let mode = document.querySelector('#assocMode .association-category-btn.active')?.dataset.mode || 'cat';
     let minSupport = Number(supEl.value);
     let minConf    = Number(confEl.value);
 
@@ -646,8 +714,54 @@ export async function init(root, Store) {
       host.style.transform = 'translate(-50%,-50%)';
     });
   }
+
   draw();
-  const unsub = Store.subscribe(() => draw());
+  hideReportsLoader();
+
+  function applyPrivacyUI(blurOn) {
+    root.querySelectorAll('.kpi-card').forEach(card => {
+      card.classList.toggle('blur-contents', blurOn);
+    });
+    
+    root.querySelectorAll('.donut-center, .kpi-meta').forEach(n => {
+      n.style.filter = blurOn ? 'blur(6px)' : '';
+    });
+
+    root.querySelectorAll('.ms-track').forEach(n => {
+      n.style.filter = blurOn ? 'blur(3px)' : '';
+      n.style.opacity = blurOn ? '0.6' : '';
+    });
+
+    const assoc = root.querySelector('#assoc');
+    if (assoc) {
+      assoc.style.filter = blurOn ? 'blur(6px)' : '';
+      assoc.style.pointerEvents = blurOn ? 'none' : '';
+      assoc.style.opacity = blurOn ? '0.6' : '';
+
+    }
+  }
+
+  const unsub = Store.subscribe((s) => {
+    rows.length = 0;
+    rows.push(...applyIgnores(allRows, s.ignores));
+
+    const msItems = ['All', ...Array.from(new Set(rows.map(r => ym(r.Date)))).sort().reverse()];
+    track.innerHTML = msItems.map((lab, i) =>
+      `<div class="ms-item${i===0 ? ' active' : ''}" role="option" tabindex="0"
+            data-ym="${lab==='All' ? '' : lab}">
+        <span class="ms-label">${lab==='All' ? 'All' : formatYmLabel(lab)}</span>
+      </div>`
+    ).join('');
+
+    requestAnimationFrame(() => {
+      const active = track.querySelector('.ms-item.active') || track.querySelector('.ms-item');
+      if (active) centerItem(active);
+    });
+
+    applyPrivacyUI(s.blurSensitive);
+    draw();
+  });
+
 
   let to=null;
   const onScroll = () => {

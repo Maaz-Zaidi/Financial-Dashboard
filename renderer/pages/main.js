@@ -24,6 +24,54 @@ export async function init(root, Store) {
     </div>
   `;
   
+  if (!document.getElementById('page-loader-styles')) {
+    const css = document.createElement('style');
+    css.id = 'page-loader-styles';
+    css.textContent = `
+      .page{ position: relative; }
+
+      .page-loader{
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        z-index: 20;
+        background: color-mix(in oklab, var(--bg) 85%, transparent);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        transition: opacity .18s ease;
+      }
+      .page-loader.show{ display: grid; opacity: 1; }
+
+      .dots{ display: inline-flex; gap: 10px; align-items: center; }
+      .dots span{
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--muted);
+        animation: page-bounce 1.1s infinite ease-in-out;
+        opacity: .75;
+      }
+      .dots span:nth-child(2){ animation-delay: .12s; }
+      .dots span:nth-child(3){ animation-delay: .24s; }
+
+      @keyframes page-bounce{
+        0%   { transform: translateY(0);    opacity: .55; }
+        35%  { transform: translateY(-6px); opacity: 1;   }
+        70%  { transform: translateY(0);    opacity: .65; }
+        100% { transform: translateY(0);    opacity: .55; }
+      }
+    `;
+    document.head.appendChild(css);
+  }
+  const pageEl = root.querySelector('.page');
+  const pageLoader = document.createElement('div');
+  pageLoader.className = 'page-loader';
+  pageLoader.innerHTML = `<div class="dots" aria-label="Loading">
+    <span></span><span></span><span></span>
+  </div>`;
+  pageEl.appendChild(pageLoader);
+
+  const showMainLoader = () => pageLoader.classList.add('show');
+  const hideMainLoader = () => pageLoader.classList.remove('show');
 
   const searchBarApi = await import('../ui/searchbar.bundle.js').then(({ mountSearchBar }) => {
     const mountNode = root.querySelector('#searchbar-root');
@@ -59,12 +107,6 @@ export async function init(root, Store) {
   const tableCard    = root.querySelector('#table-container');
   const table     = root.querySelector('#tx-table');
 
-  const loader = document.createElement('div');
-  loader.className = 'loader';
-  loader.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-  tableCard.prepend(loader);
-
-
   let currentRange = 'all';
   let allData = [];
   let page = 0;
@@ -99,24 +141,30 @@ export async function init(root, Store) {
   });
 
   async function loadData() {
-    tableCard.classList.add('loading');   
-    const csvText = await window.api.invoke('load-csv');
-    const parsed = Papa.parse(csvText, {
-      header: true, skipEmptyLines: true,
-      transformHeader: h => (h || '').trim(),
-      transform: v => (typeof v === 'string' ? v.trim() : v)
-    });
-    allData = parsed.data.filter(r => r && r.Date && !isNaN(Date.parse(r.Date)));
-    const categories = [...new Set(allData.map(r => r.Category).filter(Boolean))].sort();
-    searchBarApi.setCategories(categories);
-    updateChart();
-    renderPage(true);   
+    showMainLoader();
+    try {
+      const csvText = await window.api.invoke('load-csv');
+      const parsed = Papa.parse(csvText, {
+        header: true, skipEmptyLines: true,
+        transformHeader: h => (h || '').trim(),
+        transform: v => (typeof v === 'string' ? v.trim() : v)
+      });
 
-    requestAnimationFrame(() => {
-        tableCard.classList.remove('loading'); 
-        applyPrivacyUI();
-    });
+      allData = parsed.data.filter(r => r && r.Date && !isNaN(Date.parse(r.Date)));
+
+      const categories = [...new Set(allData.map(r => r.Category).filter(Boolean))].sort();
+      searchBarApi.setCategories(categories);
+
+      updateChart();
+      renderPage(true);
+      applyPrivacyUI(); 
+    } catch (err) {
+      console.error('Failed loading CSV:', err);
+    } finally {
+      hideMainLoader();
+    }
   }
+
 
   function applyPrivacyUI() {
     const on = !!Store.state.blurSensitive;
