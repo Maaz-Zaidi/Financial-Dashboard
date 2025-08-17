@@ -174,6 +174,66 @@ export function createBalanceChart(elId) {
     return { x: xs, y: ys };
   }
 
+  let lastYRange = null;
+
+  function buildDottedFillTraceFor(series, yrange, color = '#ff6b6b', opacity = 0.45) {
+    if (!series?.x?.length) return null;
+    const pts = buildDottedPoints(series, yrange);
+    return {
+      x: pts.x,
+      y: pts.y,
+      type: 'scattergl',
+      mode: 'markers',
+      marker: { size: 2, opacity, color },
+      hoverinfo: 'skip',
+      name: '__forecast_dots',
+      showlegend: false
+    };
+  }
+
+  function clearForecastOverlay(el) {
+    if (!el || !el.data) return;
+    const idx = [];
+    el.data.forEach((t, i) => {
+      if (t && (t.name === '__forecast_line' || t.name === '__forecast_dots')) idx.push(i);
+    });
+    if (idx.length) window.Plotly.deleteTraces(el, idx);
+  }
+
+  function applyForecastOverlay(el, payload, theme = 'dark') {
+    if (!el || !payload || !lastYRange) return;
+
+    clearForecastOverlay(el);
+
+    const redLine = (theme === 'dark') ? '#ff6b6b' : '#d9544f';
+    const redDots = (theme === 'dark') ? 'rgba(255,107,107,0.35)' : 'rgba(217,84,79,0.35)';
+
+    const lineTrace = {
+      x: payload.line.x,
+      y: payload.line.y,
+      type: 'scattergl',
+      mode: 'lines',
+      line: { shape: 'spline', smoothing: SMOOTH, width: 2, color: redLine }, // solid
+      name: '__forecast_line',
+      hovertemplate: '%{x|%Y-%m-%d} · $%{y:.2f}<extra>Forecast</extra>',
+      showlegend: false
+    };
+
+    const fillX = (payload.fill?.x?.length ? payload.fill.x : payload.line.x);
+    const fillY = (payload.fill?.y?.length ? payload.fill.y : payload.line.y);
+    const dotsTrace = buildDottedFillTraceFor(
+      { x: fillX, y: fillY },
+      lastYRange,
+      redDots,
+      0.45
+    );
+
+    const traces = [];
+    if (dotsTrace) traces.push(dotsTrace);
+    traces.push(lineTrace);
+    window.Plotly.addTraces(el, traces);
+  }
+
   function draw(series, rangeKey = currentRange, theme = 'dark') {
     currentRange = rangeKey;
     let sliced = sliceByRange(series, rangeKey);
@@ -183,6 +243,7 @@ export function createBalanceChart(elId) {
     sliced = lttb(sliced, targetPts);
 
     const yrange = calcYRange(sliced);
+    lastYRange = yrange;
 
     const lineLeft = {
       x: sliced.x, y: sliced.y,
@@ -329,6 +390,8 @@ export function createBalanceChart(elId) {
         'xaxis.fixedrange': !enabled ? true : false,
         dragmode: enabled ? 'pan' : false
       });
-    }
+    },
+    setForecast(payload, theme = 'dark') { applyForecastOverlay(el, payload, theme); },
+    clearForecast() { clearForecastOverlay(el); }
   };
 }

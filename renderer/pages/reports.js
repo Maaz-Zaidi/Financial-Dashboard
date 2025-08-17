@@ -6,7 +6,7 @@ export async function init(root, Store) {
     <div class="page">
       <div class="chart-toolbar">
         <div class="range-group" id="rg">
-          <button class="range-btn active" data-range="all">All time</button>
+          <button class="range-btn active" data-range="all">All time (Forecast)</button>
           <button class="range-btn" data-range="6m">Past 6 Months</button>
           <button class="range-btn" data-range="1m">Recent Month</button>
         </div>
@@ -131,7 +131,7 @@ export async function init(root, Store) {
     `;
     document.head.appendChild(css);
   }
-  
+
   const reportsPageEl = root.querySelector('.page');
   const reportsLoader = document.createElement('div');
   reportsLoader.className = 'page-loader';
@@ -289,11 +289,91 @@ export async function init(root, Store) {
     };
   }
 
+  function endOfMonth(d) {
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0); 
+  }
+  function ymKeyFromDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+
+  function buildBalanceSeries(rows, initialBalance=0) {
+    const sorted = rows.slice().sort((a,b)=> new Date(a.Date) - new Date(b.Date));
+    let bal = Number(initialBalance) || 0;
+    const x=[], y=[];
+    for (const r of sorted) {
+      const amt = Number(String(r.Amount ?? '').replace(/[^0-9.-]/g,'')) || 0;
+      const isIncome = String(r.Type||'').toLowerCase() === 'income';
+      bal += isIncome ? amt : -amt;
+      x.push(new Date(r.Date));
+      y.push(bal);
+    }
+    return { x, y };
+  }
+
+  function monthEnds(series) {
+    if (!series.x.length) return { x:[], y:[] };
+    const lastIdxByYm = new Map();
+    for (let i=0;i<series.x.length;i++) lastIdxByYm.set(ymKeyFromDate(series.x[i]), i);
+    const keys = [...lastIdxByYm.keys()].sort();  // ascending YYYY-MM
+    const x=[], y=[];
+    for (const k of keys) {
+      const i = lastIdxByYm.get(k);
+      x.push(endOfMonth(series.x[i]));
+      y.push(series.y[i]);
+    }
+    return { x, y };
+  }
+
+  function holtLinearFit(values, alpha=0.5, beta=0.3) {
+    if (!values.length) return { l:0, b:0 };
+    let l = values[0];
+    let b = (values.length >= 2) ? (values[1] - values[0]) : 0;
+    for (let t=1; t<values.length; t++) {
+      const prevL = l;
+      l = alpha*values[t] + (1-alpha)*(l + b);
+      b = beta*(l - prevL) + (1-beta)*b;
+    }
+    return { l, b };
+  }
+
+  function forecast3Months(monthly, lastRealDate) {
+    if (monthly.y.length < 2) return { x:[], y:[] };
+    const { l, b } = holtLinearFit(monthly.y);
+    const start = new Date(lastRealDate);
+    const fx=[], fy=[];
+    for (let h=1; h<=3; h++) {
+      const d = endOfMonth(new Date(start.getFullYear(), start.getMonth()+h, 1));
+      fx.push(d);
+      fy.push(l + h*b);
+    }
+    return { x:fx, y:fy };
+  }
+  
+  function drawForecastIfAllMode(currentRows) {
+    if (selectedMonth || range !== 'all') { chart.clearForecast(); return; }
+
+    const series = buildBalanceSeries(currentRows, Store.state.initialBalance);
+    if (series.x.length < 2) { chart.clearForecast(); return; }
+
+    const monthly = monthEnds(series);
+    if (monthly.x.length < 2) { chart.clearForecast(); return; }
+
+    const fc = forecast3Months(monthly, monthly.x[monthly.x.length - 1]);
+    if (!fc.x.length) { chart.clearForecast(); return; }
+
+    const lastRealX = series.x[series.x.length - 1];
+    const lastRealY = series.y[series.y.length - 1];
+
+    chart.setForecast({
+      line: { x: [lastRealX, ...fc.x], y: [lastRealY, ...fc.y] }
+    }, Store.state.theme);
+  }
+
+
   function draw() {
     const data = getSelectionRows();
     chart.update(data, Store.state.initialBalance, 'all', Store.state.theme);
     drawKPIs(data);
     drawAssociations(data);
+    drawForecastIfAllMode(data);
   }
 
   function drawKPIs(data) {
