@@ -11,13 +11,13 @@ A private offline desktop app that converts bank PDF statements into an interact
 
 ## Features
 
-- **PDF Statement Parsing** — Drop credit/debit bank statements and auto-extract transactions
-- **Interactive Charts** — Balance trends, category breakdowns, merchant analysis, and 3-month trend forecasting
-- **Reports & Analytics** — Category net totals over time, association analysis (Apriori), and spending pattern insights
-- **Privacy-First** — Fully offline, local data storage, built-in blur mode
-- **Dark/Light Themes** — Full theme support
-- **Custom Filters** — Ignore lists to exclude internal transfers or irrelevant postings
-- **Search & Export** — Filter transactions and export data
+- PDF Statement Parsing via credit/debit bank statements and auto-extraction
+- Charts for balance trends, category breakdowns, merchant analysis, and 3-month trend forecasting
+- Reports for category net totals over time, association analysis (Apriori), and spending pattern insights
+- Fully offline, local data storage, built-in blur mode
+- Full theme support
+- Filters to ignore lists to exclude internal transfers or irrelevant postings
+- Search, Filter, and export data
 
 ## Setup
 
