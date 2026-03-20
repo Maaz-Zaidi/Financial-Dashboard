@@ -5,3 +5,5 @@ Archive/
 node_modules/
 package-lock.json
 log.txt
+INFO.md
+parser.log
